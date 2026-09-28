@@ -41,7 +41,7 @@ Brand.init(
     {
         sequelize,
 
-        tableName: "Brands",
+        tableName: "brands",
 
         timestamps: true,
     }

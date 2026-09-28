@@ -13,9 +13,12 @@ async function startServer() {
 
     console.log("Conexión con MySQL establecida.");
 
-    await sequelize.sync();
+    // Definimos las asociaciones entre los modelos.
+    //await sequelize.sync();
 
-    console.log("Modelos sincronizados.");
+    await sequelize.sync({ force: true }).then(() => {
+      console.log("Modelos sincronizados.");
+    });
 
     app.listen(env.PORT, () => {
       console.log(
