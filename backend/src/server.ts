@@ -17,19 +17,19 @@ async function startServer() {
     //await sequelize.sync();
 
     await sequelize.sync({ force: true }).then(() => {
-      console.log("Modelos sincronizados.");
+      console.log("Models synchronized.");
     });
 
     app.listen(env.PORT, () => {
       console.log(
-        `Servidor funcionando en http://localhost:${env.PORT}`
+        `Server working in http://localhost:${env.PORT}`
       );
     });
 
   } catch (error) {
 
     console.error(
-      "No se pudo iniciar la aplicación:",
+      "The application could not be started.:",
       error
     );
 
