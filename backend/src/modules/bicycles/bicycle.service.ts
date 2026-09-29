@@ -1,3 +1,4 @@
+import { Brand } from "../brands/brand.model";
 import { Bicycle } from "./bicycle.model";
 
 export class BicycleService {
@@ -13,6 +14,18 @@ export class BicycleService {
     return Bicycle.findByPk(id);
   }
 
+  static async findEagerlyById(id: number) {
+
+    return Bicycle.findByPk(id, {
+      include: [
+        {
+          model: Brand,
+          as: 'brand'
+        }
+      ]
+    })
+
+  }
 
   static async create(data: {
     brandId: number;
