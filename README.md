@@ -1,54 +1,68 @@
 # Bicycle Shop
 
-## Introduction
+A full-stack learning project for managing a bicycle shop through a REST
+API and a React user interface.
 
-This is a learning project for building a backend API and connecting a frontend to it. Using a bicycle shop as an example, you will learn how to create API endpoints, store data in MySQL, and make HTTP requests from a React interface to create, read, update, and delete bicycles.
+The project demonstrates how to build a backend API with TypeScript,
+Express, Sequelize, and MySQL, and how to connect it to a frontend built
+with TypeScript, React, Vite, and Tailwind CSS. The application supports
+CRUD operations for bicycles and brands.
 
-The backend uses TypeScript, Express, and Sequelize. The frontend uses TypeScript, React, and Vite.
+## Getting Started
 
-To work through the project as a learning exercise, use the [learning branch](https://github.com/tcrurav/TypeScript-React-Express-Sequelize-Example/tree/learning).
+These instructions will help you set up and run the project locally for
+development and testing.
 
-**The `learning` branch is not available yet.** The link and cloning instructions below are prepared for when it is published; they will only work once that branch exists.
+### Prerequisites
 
-## Setup and development
+Make sure the following software is installed:
 
-### 1. Prerequisites
+-   Git
+-   Node.js with npm
+-   MySQL
+-   Postman (recommended for testing the API)
 
-Install Git, Node.js with npm (a version compatible with Vite, such as Node.js 22.12+), and MySQL. Make sure the MySQL server is running before starting the backend.
+A Node.js version compatible with the installed Vite version is
+required.
 
-### 2. Clone the learning branch
+### Installing
 
-```bash
-git clone --branch learning --single-branch https://github.com/tcrurav/TypeScript-React-Express-Sequelize-Example.git
-cd TypeScript-React-Express-Sequelize-Example
+Clone the repository:
+
+``` bash
+git clone <REPOSITORY_URL>
+cd bicycle-shop-dsw-develop
 ```
 
-Run the following setup steps from this project directory unless otherwise specified.
+The project contains two applications:
 
-### 3. Create the database
-
-Before running either application, create the database and configure both environment files.
-
-Connect to MySQL using MySQL Workbench or the command-line client:
-
-```bash
-mysql -u root -p
+``` text
+bicycle-shop-dsw-develop/
+├── backend/
+├── frontend/
+└── README.md
 ```
 
-Execute this SQL statement:
+### Database setup
 
-```sql
-CREATE DATABASE IF NOT EXISTS dsw_products CHARACTER SET utf8mb4;
+Start your MySQL server and create the database:
+
+``` sql
+CREATE DATABASE IF NOT EXISTS db_bicycle_shop
+CHARACTER SET utf8mb4;
 ```
 
-The backend's configured MySQL user must have permission to access this database and create its tables. In the completed implementation, Sequelize creates missing tables when the backend starts; the database itself must already exist.
+The configured MySQL user must have permission to access the database
+and create its tables.
 
-### 4. Configure the backend environment
+### Backend configuration
 
-Create a file named `.env` inside `backend/`:
+Create a `.env` file inside the `backend/` directory. You can use
+`backend/.env.example` as a reference:
 
-```dotenv
+``` dotenv
 PORT=3000
+
 DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=db_bicycle_shop
@@ -56,59 +70,455 @@ DB_USER=your-database-username
 DB_PASSWORD=your-database-password
 ```
 
-Replace `DB_USER` and `DB_PASSWORD` with your local MySQL credentials. Adjust the host, port, and database name if your setup differs.
+Replace `DB_USER` and `DB_PASSWORD` with your MySQL credentials.
 
-### 5. Configure the frontend environment
+Install the backend dependencies:
 
-Create a file named `.env` inside `frontend/`:
+``` bash
+cd backend
+npm ci
+```
 
-```dotenv
+Start the backend in development mode:
+
+``` bash
+npm run dev
+```
+
+The server will run at:
+
+``` text
+http://localhost:3000
+```
+
+The API base URL is:
+
+``` text
+http://localhost:3000/api
+```
+
+The root endpoint can also be used to verify that the API is running:
+
+``` http
+GET /
+```
+
+It returns:
+
+``` json
+{
+  "message": "API working"
+}
+```
+
+> **Important:** the current backend uses
+> `sequelize.sync({ force: true })`. Every time the backend starts,
+> Sequelize recreates the database tables. Existing data can therefore
+> be deleted. This setting should be reviewed before using the
+> application with persistent or production data.
+
+### Frontend configuration
+
+Create a `.env` file inside the `frontend/` directory. You can use
+`frontend/.env.example` as a reference:
+
+``` dotenv
 VITE_API_URL=http://localhost:3000/api
 ```
 
-This is the backend's base URL. Do not add a trailing slash or `/bicycles`, because the frontend appends endpoint paths itself. If you change the backend port, update this URL as well. Restart the relevant development server after changing an environment file.
+Install the frontend dependencies:
 
-### 6. Install dependencies
-
-Install dependencies for both applications using their existing lockfiles:
-
-```bash
-cd backend
-npm ci
-cd ../frontend
-npm ci
-cd ..
-```
-
-### 7. Start both applications
-
-Open two terminals in the project root and keep both running.
-
-In the first terminal, start the backend:
-
-```bash
-cd backend
-npm run dev
-```
-
-With the configuration above, the API runs at [http://localhost:3000/api](http://localhost:3000/api), and the bicycle endpoint is [http://localhost:3000/api/bicycles](http://localhost:3000/api/bicycles).
-
-In the second terminal, start the frontend:
-
-```bash
+``` bash
 cd frontend
+npm ci
+```
+
+Start the frontend development server:
+
+``` bash
 npm run dev
 ```
 
-Open the local URL printed by Vite, usually [http://localhost:5173](http://localhost:5173). The frontend sends API requests to the URL configured in `frontend/.env`.
+Open the local URL displayed by Vite in the terminal.
 
-## Recommended links
+## API
 
-- [Express documentation](https://expressjs.com/) — routing, middleware, and backend APIs.
-- [Sequelize v6 documentation](https://sequelize.org/docs/v6/) — models and database queries.
-- [MySQL: Creating and selecting a database](https://dev.mysql.com/doc/refman/8.4/en/creating-database.html) — database setup.
-- [React: Quick Start](https://react.dev/learn) — components, state, and events.
-- [Vite: Getting Started](https://vite.dev/guide/) — frontend development tooling and Node.js requirements.
-- [npm ci documentation](https://docs.npmjs.com/cli/v11/commands/npm-ci/) — installing dependencies from a lockfile.
+The backend exposes REST endpoints for bicycles and brands.
 
- ## Link postman :https://documenter.getpostman.com/view/58320211/2sBYB4L76J
+### Bicycle endpoints
+
+  -----------------------------------------------------------------------------
+  Method                  Endpoint                      Description
+  ----------------------- ----------------------------- -----------------------
+  `GET`                   `/api/bicycles`               Get all bicycles
+
+  `GET`                   `/api/bicycles/:id`           Get a bicycle by ID
+
+  `GET`                   `/api/bicycles/eagerly/:id`   Get a bicycle by ID
+                                                        including its brand
+
+  `POST`                  `/api/bicycles`               Create a bicycle
+
+  `PUT`                   `/api/bicycles/:id`           Update a bicycle
+
+  `DELETE`                `/api/bicycles/:id`           Delete a bicycle
+  -----------------------------------------------------------------------------
+
+A bicycle contains the following main fields:
+
+-   `id`
+-   `brandId`
+-   `model`
+-   `description`
+-   `price`
+-   `stock`
+-   `createdAt`
+-   `updatedAt`
+
+When creating a bicycle, `brandId`, `model`, and `price` are required by
+the controller.
+
+### Brand endpoints
+
+  Method     Endpoint            Description
+  ---------- ------------------- -------------------
+  `GET`      `/api/brands`       Get all brands
+  `GET`      `/api/brands/:id`   Get a brand by ID
+  `POST`     `/api/brands`       Create a brand
+  `PUT`      `/api/brands/:id`   Update a brand
+  `DELETE`   `/api/brands/:id`   Delete a brand
+
+A brand contains:
+
+-   `id`
+-   `name`
+-   `createdAt`
+-   `updatedAt`
+
+The `name` field is required when creating a brand.
+
+## API Request Flow
+
+The following Mermaid diagram shows how requests travel through the
+application.
+
+``` mermaid
+flowchart LR
+    U[User] --> F[React Frontend]
+    F -->|HTTP request| API[Express REST API]
+
+    API --> BR[/api/brands]
+    API --> BI[/api/bicycles]
+
+    BR --> BC[Brand Controller]
+    BI --> BIC[Bicycle Controller]
+
+    BC --> BS[Brand Service]
+    BIC --> BIS[Bicycle Service]
+
+    BS --> S[Sequelize ORM]
+    BIS --> S
+
+    S --> DB[(MySQL)]
+
+    DB --> S
+    S --> BS
+    S --> BIS
+    BS --> BC
+    BIS --> BIC
+    BC --> API
+    BIC --> API
+    API -->|JSON response| F
+```
+
+## Bicycle Queries
+
+``` mermaid
+flowchart TD
+    A[/api/bicycles] --> B{HTTP Method}
+
+    B -->|GET| C[Get all bicycles]
+    B -->|POST| D[Create bicycle]
+
+    E[/api/bicycles/:id] --> F{HTTP Method}
+    F -->|GET| G[Get bicycle by ID]
+    F -->|PUT| H[Update bicycle]
+    F -->|DELETE| I[Delete bicycle]
+
+    J[/api/bicycles/eagerly/:id] --> K[Get bicycle with Brand]
+
+    C --> S[Bicycle Service]
+    D --> S
+    G --> S
+    H --> S
+    I --> S
+    K --> S
+
+    S --> ORM[Sequelize]
+    ORM --> DB[(MySQL)]
+```
+
+## Brand Queries
+
+``` mermaid
+flowchart TD
+    A[/api/brands] --> B{HTTP Method}
+
+    B -->|GET| C[Get all brands]
+    B -->|POST| D[Create brand]
+
+    E[/api/brands/:id] --> F{HTTP Method}
+    F -->|GET| G[Get brand by ID]
+    F -->|PUT| H[Update brand]
+    F -->|DELETE| I[Delete brand]
+
+    C --> S[Brand Service]
+    D --> S
+    G --> S
+    H --> S
+    I --> S
+
+    S --> ORM[Sequelize]
+    ORM --> DB[(MySQL)]
+```
+
+## Database Model
+
+A brand can have many bicycles, while each bicycle belongs to one brand.
+
+The foreign key is `bicycles.brandId`, which references `brands.id`.
+Updates are configured with `CASCADE`, while deletion of a referenced
+brand is restricted with `RESTRICT`.
+
+``` mermaid
+erDiagram
+    BRAND ||--o{ BICYCLE : has
+
+    BRAND {
+        INT id PK
+        VARCHAR_150 name
+        DATE createdAt
+        DATE updatedAt
+    }
+
+    BICYCLE {
+        INT id PK
+        INT brandId FK
+        VARCHAR_150 model
+        TEXT description
+        DECIMAL_10_2 price
+        INT stock
+        DATE createdAt
+        DATE updatedAt
+    }
+```
+
+## Eager Loading Query
+
+The project includes an endpoint that retrieves a bicycle together with
+its associated brand.
+
+``` http
+GET /api/bicycles/eagerly/:id
+```
+
+Internally, Sequelize performs the query using the `Brand` model through
+the `brand` association.
+
+``` mermaid
+sequenceDiagram
+    participant C as Client
+    participant R as Bicycle Route
+    participant CT as Bicycle Controller
+    participant S as Bicycle Service
+    participant O as Sequelize
+    participant DB as MySQL
+
+    C->>R: GET /api/bicycles/eagerly/:id
+    R->>CT: getEagerlyById
+    CT->>S: findEagerlyById(id)
+    S->>O: findByPk + include Brand
+    O->>DB: Query bicycle and associated brand
+    DB-->>O: Bicycle + Brand data
+    O-->>S: Bicycle model with brand
+    S-->>CT: Bicycle with Brand
+    CT-->>C: JSON response
+```
+
+## Postman
+
+The API can be tested using the existing Postman documentation:
+
+https://documenter.getpostman.com/view/58320211/2sBYB4L76J
+
+The Postman collection can be used to test the available bicycle and
+brand endpoints.
+
+## Running the Tests
+
+The project currently does not include an automated test suite or a
+`test` script in its package configuration.
+
+API functionality can be tested manually using Postman and the frontend
+interface.
+
+The frontend includes a lint command:
+
+``` bash
+cd frontend
+npm run lint
+```
+
+## Deployment
+
+Build the backend:
+
+``` bash
+cd backend
+npm run build
+```
+
+The compiled backend can then be started with:
+
+``` bash
+npm start
+```
+
+Build the frontend:
+
+``` bash
+cd frontend
+npm run build
+```
+
+The frontend production build can be previewed locally with:
+
+``` bash
+npm run preview
+```
+
+Before deploying the application, configure the production environment
+variables and MySQL connection correctly.
+
+The following backend configuration must also be changed or carefully
+reviewed before using persistent production data:
+
+``` typescript
+sequelize.sync({ force: true })
+```
+
+Using `force: true` recreates the tables when the application starts.
+
+## Built With
+
+### Backend
+
+-   TypeScript
+-   Node.js
+-   Express 5
+-   Sequelize 6
+-   MySQL / mysql2
+-   CORS
+-   dotenv
+-   tsx
+
+### Frontend
+
+-   TypeScript
+-   React 19
+-   Vite
+-   Tailwind CSS
+-   Oxlint
+
+### Development and API tools
+
+-   Git
+-   npm
+-   Postman
+
+## Project Structure
+
+The main application structure is organized as follows:
+
+``` text
+bicycle-shop-dsw-develop/
+│
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── middlewares/
+│   │   ├── models/
+│   │   ├── modules/
+│   │   │   ├── bicycles/
+│   │   │   └── brands/
+│   │   ├── routes/
+│   │   ├── app.ts
+│   │   └── server.ts
+│   ├── .env.example
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── ui/
+│   │   ├── features/
+│   │   │   └── bicycles/
+│   │   │       ├── components/
+│   │   │       ├── hooks/
+│   │   │       ├── pages/
+│   │   │       ├── services/
+│   │   │       └── types/
+│   │   ├── services/
+│   │   ├── styles/
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── .env.example
+│   ├── package.json
+│   └── vite.config.ts
+│
+└── README.md
+```
+
+## Contributing
+
+There is currently no separate `CONTRIBUTING.md` file in the project.
+
+A typical contribution workflow is:
+
+1.  Create a new branch from the main development branch.
+2.  Make the required changes.
+3.  Verify that the backend and frontend run correctly.
+4.  Run the available lint checks.
+5.  Commit the changes with a clear description.
+6.  Open a Pull Request for review.
+
+## Versioning
+
+Git is used for version control.
+
+Repository history and releases, when available, can be used to track
+project versions and changes.
+
+## Authors
+
+-   **Victor Manuel Garcia Batista** --- Author and developer.
+
+## Contributors
+
+-   **Tiburcio Cruz Ravelo** --- Contributor.
+
+## License
+
+The backend `package.json` currently declares the **ISC** license.
+
+If the repository is going to be distributed publicly, adding a
+dedicated `LICENSE` file is recommended so that the licensing terms are
+clearly available at repository level.
+
+## Acknowledgments
+
+-   README structure based on the README template by PurpleBooth.
+-   Official documentation for the technologies used in the project.
+-   Thanks to everyone who contributed to the development and
+    improvement of the project.
