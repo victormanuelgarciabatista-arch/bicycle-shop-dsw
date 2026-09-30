@@ -15,7 +15,7 @@ export class BicycleDetail extends Model<
     declare id: CreationOptional<number>;
 
     declare bicycleId: number;
-    
+
     declare frameMaterial: "Aluminum" | "Carbon" | "Steel" | "Titanium";
 
     declare wheelSize: number;
@@ -29,30 +29,40 @@ export class BicycleDetail extends Model<
     declare updatedAt: CreationOptional<Date>;
 }
 
+
 BicycleDetail.init(
     {
         id: {
             type: DataTypes.INTEGER.UNSIGNED,
             autoIncrement: true,
-            primaryKey: true,
+            primaryKey: true
         },
-
         bicycleId: {
             type: DataTypes.INTEGER.UNSIGNED,
             allowNull: false,
             unique: true
         },
-         frameMaterial: { type: DataTypes.ENUM("Aluminum","Carbon","Steel","Titanium"), allowNull: false },
-
+        frameMaterial: {
+            type: DataTypes.ENUM("Aluminum", "Carbon", "Steel", "Titanium"),
+        },
+        wheelSize: {
+            type: DataTypes.DECIMAL(4, 1)
+        },
+        weight: {
+            type: DataTypes.DECIMAL(5, 2)
+        },
+        suspension: {
+            type: DataTypes.STRING(80),
+            allowNull: true
+        },
         createdAt: DataTypes.DATE,
-
         updatedAt: DataTypes.DATE,
     },
     {
         sequelize,
-
-        tableName: "BicycleDetails",
-
+        tableName: "bicycle_details",
+        modelName: "BicycleDetail",
         timestamps: true,
     }
 );
+
