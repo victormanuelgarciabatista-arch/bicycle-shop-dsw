@@ -2,7 +2,29 @@
 
 A full-stack learning project for managing a bicycle shop through a REST API and a React user interface.
 
-The project uses a backend built with TypeScript, Node.js, Express, Sequelize, and MySQL, together with a frontend built with TypeScript, React, Vite, and Tailwind CSS. It provides CRUD operations for bicycles, brands, and bicycle technical details, as well as eager-loading queries using Sequelize associations.
+The backend is built with TypeScript, Node.js, Express, Sequelize, and MySQL. The frontend is built with TypeScript, React, Vite, and Tailwind CSS. The project provides CRUD operations for **bicycles**, **brands**, **bicycle technical details**, **customers**, and **orders**, as well as queries that use Sequelize associations (eager loading), such as a bicycle with its brand, bicycles filtered by frame material, and customers searched by name together with their orders.
+
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [API](#api)
+- [API Request Flow](#api-request-flow)
+- [Queries by Resource](#queries-by-resource)
+- [Database Model](#database-model)
+- [Eager Loading Queries](#eager-loading-queries)
+- [Example Requests](#example-requests)
+- [Postman](#postman)
+- [Known Issues](#known-issues)
+- [Running the Tests](#running-the-tests)
+- [Deployment](#deployment)
+- [Built With](#built-with)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [Versioning](#versioning)
+- [Authors](#authors)
+- [Contributors](#contributors)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
 
 ## Getting Started
 
@@ -25,13 +47,13 @@ Clone the repository and enter the project directory:
 
 ```bash
 git clone <REPOSITORY_URL>
-cd bicycle-shop-dsw-entrega-3
+cd bicycle-shop-dsw-entrega-4
 ```
 
 The project contains two applications:
 
 ```text
-bicycle-shop-dsw-entrega-3/
+bicycle-shop-dsw-entrega-4/
 ├── backend/
 ├── frontend/
 └── README.md
@@ -46,7 +68,7 @@ CREATE DATABASE IF NOT EXISTS db_bicycle_shop
 CHARACTER SET utf8mb4;
 ```
 
-The configured MySQL user must have permission to access the database and create its tables.
+The configured MySQL user must have permission to access the database and create its tables. The tables (`brands`, `bicycles`, `bicycle_details`, `Customers`, and `orders`) are created automatically by Sequelize when the backend starts.
 
 ### Backend configuration
 
@@ -63,6 +85,8 @@ DB_PASSWORD=your-database-password
 ```
 
 Replace `DB_USER` and `DB_PASSWORD` with your MySQL credentials.
+
+> **Note:** if a variable is missing, `backend/src/config/env.ts` falls back to default values (`PORT=3000`, `DB_HOST=localhost`, `DB_PORT=3306`, `DB_USER=root`, an empty password, and `DB_NAME=dsw_products`). The default database name is **not** the same as the one in `.env.example`, so always define `DB_NAME` explicitly.
 
 Install the backend dependencies:
 
@@ -103,7 +127,7 @@ Response:
 }
 ```
 
-> **Important:** the current backend uses `sequelize.sync({ force: true })`. Every time the backend starts, Sequelize recreates the database tables, so existing data can be deleted. This setting should be reviewed before using persistent or production data.
+> **Important:** the current backend uses `sequelize.sync({ force: true })`. Every time the backend starts, Sequelize drops and recreates the database tables, so existing data is deleted. This setting should be reviewed before using persistent or production data.
 
 ### Frontend configuration
 
@@ -128,21 +152,56 @@ npm run dev
 
 Open the local URL displayed by Vite in the terminal.
 
+> **Note:** the frontend currently only contains the bicycle listing and management screen. Brands, bicycle details, customers, and orders are available through the API only. See [Known Issues](#known-issues) for the current frontend/backend mismatch.
+
 ## API
 
-The backend exposes REST endpoints for bicycles, brands, and bicycle details.
+The backend exposes REST endpoints for bicycles, brands, bicycle details, customers, and orders. All of them are served under the `/api` prefix.
+
+```mermaid
+flowchart LR
+    API["Express REST API<br/>/api"]
+
+    API --> R1["/api/bicycles"]
+    API --> R2["/api/brands"]
+    API --> R3["/api/bicycle-details"]
+    API --> R4["/api/customers"]
+    API --> R5["/api/orders"]
+
+    classDef root fill:#e0e7ff,stroke:#4338ca,color:#1e1b4b
+    classDef res fill:#f3f4f6,stroke:#6b7280,color:#111827
+    class API root
+    class R1,R2,R3,R4,R5 res
+```
+
+In the endpoint diagrams below, each box is one endpoint (one row of the former tables). Colors indicate the HTTP method:
+
+- Green: `GET`
+- Blue: `POST`
+- Amber: `PUT`
+- Red: `DELETE`
 
 ### Bicycle endpoints
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/api/bicycles` | Get all bicycles |
-| `GET` | `/api/bicycles/:id` | Get a bicycle by ID |
-| `GET` | `/api/bicycles/eagerly/:id` | Get a bicycle by ID including its brand |
-| `GET` | `/api/bicycles/eagerly/frame-material/:frameMaterial` | Get bicycles whose detail matches a frame material |
-| `POST` | `/api/bicycles` | Create a bicycle |
-| `PUT` | `/api/bicycles/:id` | Update a bicycle |
-| `DELETE` | `/api/bicycles/:id` | Delete a bicycle |
+```mermaid
+flowchart LR
+    subgraph BICYCLES["Bicycle endpoints"]
+        direction TB
+        B1["<b>GET</b> /api/bicycles<br/><i>Get all bicycles</i>"]:::get
+        B2["<b>GET</b> /api/bicycles/:id<br/><i>Get a bicycle by ID</i>"]:::get
+        B3["<b>GET</b> /api/bicycles/eagerly/:id<br/><i>Get a bicycle by ID including its brand</i>"]:::get
+        B4["<b>GET</b> /api/bicycles/eagerly/frame-material/:frameMaterial<br/><i>Get bicycles whose detail matches a frame material</i>"]:::get
+        B5["<b>POST</b> /api/bicycles<br/><i>Create a bicycle</i>"]:::post
+        B6["<b>PUT</b> /api/bicycles/:id<br/><i>Update a bicycle</i>"]:::put
+        B7["<b>DELETE</b> /api/bicycles/:id<br/><i>Delete a bicycle</i>"]:::del
+        B1 ~~~ B2 ~~~ B3 ~~~ B4 ~~~ B5 ~~~ B6 ~~~ B7
+    end
+
+    classDef get fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef post fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef put fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef del fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+```
 
 A bicycle contains the following fields:
 
@@ -159,13 +218,23 @@ When creating a bicycle, `brandId`, `model`, and `price` are required by the con
 
 ### Brand endpoints
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/api/brands` | Get all brands |
-| `GET` | `/api/brands/:id` | Get a brand by ID |
-| `POST` | `/api/brands` | Create a brand |
-| `PUT` | `/api/brands/:id` | Update a brand |
-| `DELETE` | `/api/brands/:id` | Delete a brand |
+```mermaid
+flowchart LR
+    subgraph BRANDS["Brand endpoints"]
+        direction TB
+        R1["<b>GET</b> /api/brands<br/><i>Get all brands</i>"]:::get
+        R2["<b>GET</b> /api/brands/:id<br/><i>Get a brand by ID</i>"]:::get
+        R3["<b>POST</b> /api/brands<br/><i>Create a brand</i>"]:::post
+        R4["<b>PUT</b> /api/brands/:id<br/><i>Update a brand</i>"]:::put
+        R5["<b>DELETE</b> /api/brands/:id<br/><i>Delete a brand</i>"]:::del
+        R1 ~~~ R2 ~~~ R3 ~~~ R4 ~~~ R5
+    end
+
+    classDef get fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef post fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef put fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef del fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+```
 
 A brand contains:
 
@@ -176,16 +245,28 @@ A brand contains:
 
 The `name` field is required when creating a brand.
 
+A brand that still has bicycles cannot be deleted (`ON DELETE RESTRICT`); the request fails until its bicycles are removed or moved to another brand.
+
 ### Bicycle detail endpoints
 
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `GET` | `/api/bicycle-details` | Get all bicycle details |
-| `GET` | `/api/bicycle-details/:id` | Get a bicycle detail by ID |
-| `GET` | `/api/bicycle-details/eagerly/:id` | Eager-loading endpoint currently present in the backend |
-| `POST` | `/api/bicycle-details` | Create a bicycle detail |
-| `PUT` | `/api/bicycle-details/:id` | Update a bicycle detail |
-| `DELETE` | `/api/bicycle-details/:id` | Delete a bicycle detail |
+```mermaid
+flowchart LR
+    subgraph DETAILS["Bicycle detail endpoints"]
+        direction TB
+        D1["<b>GET</b> /api/bicycle-details<br/><i>Get all bicycle details</i>"]:::get
+        D2["<b>GET</b> /api/bicycle-details/:id<br/><i>Get a bicycle detail by ID</i>"]:::get
+        D3["<b>GET</b> /api/bicycle-details/eagerly/:id<br/><i>Eager-loading endpoint currently present in the backend</i>"]:::get
+        D4["<b>POST</b> /api/bicycle-details<br/><i>Create a bicycle detail</i>"]:::post
+        D5["<b>PUT</b> /api/bicycle-details/:id<br/><i>Update a bicycle detail</i>"]:::put
+        D6["<b>DELETE</b> /api/bicycle-details/:id<br/><i>Delete a bicycle detail</i>"]:::del
+        D1 ~~~ D2 ~~~ D3 ~~~ D4 ~~~ D5 ~~~ D6
+    end
+
+    classDef get fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef post fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef put fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef del fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+```
 
 A bicycle detail contains:
 
@@ -211,6 +292,84 @@ The `bicycleId` field is unique, enforcing one technical-detail record per bicyc
 
 > **Implementation note:** `/api/bicycle-details/eagerly/:id` exists in the current routes, but its service currently includes `BicycleDetail` itself using the alias `bicycleDetail`. The defined association is instead `BicycleDetail.belongsTo(Bicycle, { as: "bicycle" })`. The endpoint should therefore be reviewed before relying on its eager-loading response.
 
+### Customer endpoints
+
+```mermaid
+flowchart LR
+    subgraph CUSTOMERS["Customer endpoints"]
+        direction TB
+        C1["<b>GET</b> /api/customers<br/><i>Get all customers</i>"]:::get
+        C2["<b>GET</b> /api/customers/:name_search/orders<br/><i>Search customers by name and include their orders</i>"]:::get
+        C3["<b>GET</b> /api/customers/:id<br/><i>Get a customer by ID</i>"]:::get
+        C4["<b>POST</b> /api/customers<br/><i>Create a customer</i>"]:::post
+        C5["<b>PUT</b> /api/customers/:id<br/><i>Update a customer</i>"]:::put
+        C6["<b>DELETE</b> /api/customers/:id<br/><i>Delete a customer</i>"]:::del
+        C1 ~~~ C2 ~~~ C3 ~~~ C4 ~~~ C5 ~~~ C6
+    end
+
+    classDef get fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef post fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef put fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef del fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+```
+
+A customer contains:
+
+- `id`
+- `name`
+- `email`
+- `createdAt`
+- `updatedAt`
+
+When creating a customer, `name` and `email` are required by the controller. The `email` field is unique.
+
+`GET /api/customers/:name_search/orders` performs a partial, `LIKE`-based search on the customer name (for example, `jua` matches `Juan`). It uses an inner join, so **only customers that have at least one order are returned**, each with an `orders` array.
+
+Deleting a customer also deletes all of their orders (`ON DELETE CASCADE`).
+
+### Order endpoints
+
+```mermaid
+flowchart LR
+    subgraph ORDERS["Order endpoints"]
+        direction TB
+        O1["<b>GET</b> /api/orders<br/><i>Get all orders</i>"]:::get
+        O2["<b>GET</b> /api/orders/customers/:id<br/><i>Get the orders of a customer, newest first</i>"]:::get
+        O3["<b>GET</b> /api/orders/:id<br/><i>Get an order by ID</i>"]:::get
+        O4["<b>POST</b> /api/orders<br/><i>Create an order</i>"]:::post
+        O5["<b>PUT</b> /api/orders/:id<br/><i>Update an order</i>"]:::put
+        O6["<b>DELETE</b> /api/orders/:id<br/><i>Delete an order</i>"]:::del
+        O1 ~~~ O2 ~~~ O3 ~~~ O4 ~~~ O5 ~~~ O6
+    end
+
+    classDef get fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef post fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef put fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef del fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+```
+
+An order contains:
+
+- `id`
+- `customerId`
+- `orderDate`
+- `status`
+- `createdAt`
+- `updatedAt`
+
+The accepted `status` values are:
+
+- `pending`
+- `paid`
+- `shipped`
+- `cancelled`
+
+When creating an order, `customerId`, `orderDate`, and `status` are required by the controller. Although the model defines defaults (`orderDate` = current date and `status` = `pending`), the controller currently rejects requests that omit them.
+
+`GET /api/orders/customers/:id` returns the orders of one customer sorted by `orderDate` in descending order, and includes the customer's `id`, `name`, and `email`.
+
+> **Note:** orders are not yet linked to bicycles. An order only stores its customer, date, and status; there are no order lines.
+
 ## API Request Flow
 
 ```mermaid
@@ -218,21 +377,29 @@ flowchart LR
     U[User] --> F[React Frontend]
     F -->|HTTP request| API[Express REST API]
 
-    API --> BR[/api/brands]
-    API --> BI[/api/bicycles]
-    API --> BD[/api/bicycle-details]
+    API --> BR["/api/brands"]
+    API --> BI["/api/bicycles"]
+    API --> BD["/api/bicycle-details"]
+    API --> CU["/api/customers"]
+    API --> OR["/api/orders"]
 
     BR --> BC[Brand Controller]
     BI --> BIC[Bicycle Controller]
     BD --> BDC[Bicycle Detail Controller]
+    CU --> CC[Customer Controller]
+    OR --> OC[Order Controller]
 
     BC --> BS[Brand Service]
     BIC --> BIS[Bicycle Service]
     BDC --> BDS[Bicycle Detail Service]
+    CC --> CS[Customer Service]
+    OC --> OS[Order Service]
 
     BS --> ORM[Sequelize ORM]
     BIS --> ORM
     BDS --> ORM
+    CS --> ORM
+    OS --> ORM
     ORM --> DB[(MySQL)]
 
     DB --> ORM
@@ -240,21 +407,25 @@ flowchart LR
     API -->|JSON response| F
 ```
 
-## Bicycle Queries
+Requests that do not match any route receive a `404` response (`Ruta no encontrada`), and unhandled errors are caught by the error middleware, which returns a `500` response (`Error interno del servidor`).
+
+## Queries by Resource
+
+### Bicycle Queries
 
 ```mermaid
 flowchart TD
-    A[/api/bicycles] --> B{HTTP Method}
+    A["/api/bicycles"] --> B{HTTP Method}
     B -->|GET| C[Get all bicycles]
     B -->|POST| D[Create bicycle]
 
-    E[/api/bicycles/:id] --> F{HTTP Method}
+    E["/api/bicycles/:id"] --> F{HTTP Method}
     F -->|GET| G[Get bicycle by ID]
     F -->|PUT| H[Update bicycle]
     F -->|DELETE| I[Delete bicycle]
 
-    J[/api/bicycles/eagerly/:id] --> K[Get bicycle with Brand]
-    L[/api/bicycles/eagerly/frame-material/:frameMaterial] --> M[Filter bicycles by BicycleDetail frameMaterial]
+    J["/api/bicycles/eagerly/:id"] --> K[Get bicycle with Brand]
+    L["/api/bicycles/eagerly/frame-material/:frameMaterial"] --> M[Filter bicycles by BicycleDetail frameMaterial]
 
     C --> S[Bicycle Service]
     D --> S
@@ -268,15 +439,15 @@ flowchart TD
     ORM --> DB[(MySQL)]
 ```
 
-## Brand Queries
+### Brand Queries
 
 ```mermaid
 flowchart TD
-    A[/api/brands] --> B{HTTP Method}
+    A["/api/brands"] --> B{HTTP Method}
     B -->|GET| C[Get all brands]
     B -->|POST| D[Create brand]
 
-    E[/api/brands/:id] --> F{HTTP Method}
+    E["/api/brands/:id"] --> F{HTTP Method}
     F -->|GET| G[Get brand by ID]
     F -->|PUT| H[Update brand]
     F -->|DELETE| I[Delete brand]
@@ -291,22 +462,74 @@ flowchart TD
     ORM --> DB[(MySQL)]
 ```
 
-## Bicycle Detail Queries
+### Bicycle Detail Queries
 
 ```mermaid
 flowchart TD
-    A[/api/bicycle-details] --> B{HTTP Method}
+    A["/api/bicycle-details"] --> B{HTTP Method}
     B -->|GET| C[Get all bicycle details]
     B -->|POST| D[Create bicycle detail]
 
-    E[/api/bicycle-details/:id] --> F{HTTP Method}
+    E["/api/bicycle-details/:id"] --> F{HTTP Method}
     F -->|GET| G[Get bicycle detail by ID]
     F -->|PUT| H[Update bicycle detail]
     F -->|DELETE| I[Delete bicycle detail]
 
-    J[/api/bicycle-details/eagerly/:id] --> K[Eager-loading endpoint present in current code]
+    J["/api/bicycle-details/eagerly/:id"] --> K[Eager-loading endpoint present in current code]
 
     C --> S[Bicycle Detail Service]
+    D --> S
+    G --> S
+    H --> S
+    I --> S
+    K --> S
+
+    S --> ORM[Sequelize]
+    ORM --> DB[(MySQL)]
+```
+
+### Customer Queries
+
+```mermaid
+flowchart TD
+    A["/api/customers"] --> B{HTTP Method}
+    B -->|GET| C[Get all customers]
+    B -->|POST| D[Create customer]
+
+    E["/api/customers/:id"] --> F{HTTP Method}
+    F -->|GET| G[Get customer by ID]
+    F -->|PUT| H[Update customer]
+    F -->|DELETE| I[Delete customer]
+
+    J["/api/customers/:name_search/orders"] --> K[Search customers by name with their Orders]
+
+    C --> S[Customer Service]
+    D --> S
+    G --> S
+    H --> S
+    I --> S
+    K --> S
+
+    S --> ORM[Sequelize]
+    ORM --> DB[(MySQL)]
+```
+
+### Order Queries
+
+```mermaid
+flowchart TD
+    A["/api/orders"] --> B{HTTP Method}
+    B -->|GET| C[Get all orders]
+    B -->|POST| D[Create order]
+
+    E["/api/orders/:id"] --> F{HTTP Method}
+    F -->|GET| G[Get order by ID]
+    F -->|PUT| H[Update order]
+    F -->|DELETE| I[Delete order]
+
+    J["/api/orders/customers/:id"] --> K[Get orders of a customer with Customer data]
+
+    C --> S[Order Service]
     D --> S
     G --> S
     H --> S
@@ -325,13 +548,20 @@ The current Sequelize associations define:
 - Each `Bicycle` belongs to one `Brand`.
 - One `Bicycle` can have one `BicycleDetail`.
 - Each `BicycleDetail` belongs to one `Bicycle`.
+- One `Customer` can have many `Order` records.
+- Each `Order` belongs to one `Customer`.
 
-For `Bicycle.brandId`, updates use `CASCADE` and deletion of a referenced brand uses `RESTRICT`. The Bicycle-to-BicycleDetail association is configured with `onDelete: "CASCADE"` on the `hasOne` association.
+Referential actions of the generated foreign keys:
+
+- `bicycles.brandId` → `brands.id`: `ON UPDATE CASCADE`, `ON DELETE RESTRICT`.
+- `bicycle_details.bicycleId` → `bicycles.id`: `ON UPDATE CASCADE`, `ON DELETE CASCADE`.
+- `orders.customerId` → `Customers.id`: `ON UPDATE CASCADE`, `ON DELETE CASCADE`.
 
 ```mermaid
 erDiagram
-    BRAND ||--o{ BICYCLE : has
-    BICYCLE ||--o| BICYCLE_DETAIL : has
+    BRAND ||--o{ BICYCLE : "has (delete RESTRICT)"
+    BICYCLE ||--o| BICYCLE_DETAIL : "has (delete CASCADE)"
+    CUSTOMER ||--o{ ORDERS : "places (delete CASCADE)"
 
     BRAND {
         INT id PK
@@ -353,7 +583,7 @@ erDiagram
 
     BICYCLE_DETAIL {
         INT id PK
-        INT bicycleId FK_UK
+        INT bicycleId FK, UK
         ENUM frameMaterial
         DECIMAL_4_1 wheelSize
         DECIMAL_5_2 weight
@@ -361,7 +591,26 @@ erDiagram
         DATE createdAt
         DATE updatedAt
     }
+
+    CUSTOMER {
+        INT id PK
+        VARCHAR_150 name
+        VARCHAR_160 email UK
+        DATE createdAt
+        DATE updatedAt
+    }
+
+    ORDERS {
+        INT id PK
+        INT customerId FK
+        DATE orderDate
+        ENUM status
+        DATE createdAt
+        DATE updatedAt
+    }
 ```
+
+> **Table names:** the MySQL tables are `brands`, `bicycles`, `bicycle_details`, `orders`, and `Customers`. The customers table is the only one with a capitalized name. On case-sensitive systems (for example, MySQL on Linux), always write it as `Customers` in manual SQL queries.
 
 ## Eager Loading Queries
 
@@ -427,6 +676,144 @@ sequenceDiagram
     CT-->>C: JSON response
 ```
 
+### Customers searched by name with their orders
+
+The project can search customers by a partial name and return them together with their orders:
+
+```http
+GET /api/customers/:name_search/orders
+```
+
+For example:
+
+```http
+GET /api/customers/jua/orders
+```
+
+Because the include uses `required: true`, customers without orders are not part of the result.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant R as Customer Route
+    participant CT as Customer Controller
+    participant S as Customer Service
+    participant O as Sequelize
+    participant DB as MySQL
+
+    C->>R: GET /api/customers/jua/orders
+    R->>CT: getCustomersWithOrdersByNameSearch
+    CT->>S: findCustomersWithOrdersByNameSearch("jua")
+    S->>O: Customer.findAll + where name LIKE %jua% + include Order as orders (required)
+    O->>DB: Query customers INNER JOIN orders
+    DB-->>O: Matching customers and their orders
+    O-->>S: Customers with orders
+    S-->>CT: Result
+    CT-->>C: JSON response
+```
+
+### Orders of a customer
+
+The project can retrieve all the orders of a customer, including basic customer data:
+
+```http
+GET /api/orders/customers/:id
+```
+
+For example:
+
+```http
+GET /api/orders/customers/1
+```
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant R as Order Route
+    participant CT as Order Controller
+    participant S as Order Service
+    participant O as Sequelize
+    participant DB as MySQL
+
+    C->>R: GET /api/orders/customers/1
+    R->>CT: getByCustomerId
+    CT->>S: findByCustomerId(1)
+    S->>O: Order.findAll + where customerId + include Customer as customer + order by orderDate DESC
+    O->>DB: Query orders joined with Customers
+    DB-->>O: Orders + customer id, name and email
+    O-->>S: Order list
+    S-->>CT: Result
+    CT-->>C: JSON response
+```
+
+## Example Requests
+
+Create a brand (it must exist before creating bicycles):
+
+```http
+POST /api/brands
+Content-Type: application/json
+
+{
+  "name": "bh"
+}
+```
+
+Create a bicycle:
+
+```http
+POST /api/bicycles
+Content-Type: application/json
+
+{
+  "brandId": 1,
+  "model": "Sky",
+  "description": "Great for any occasion",
+  "price": 189.99,
+  "stock": 10
+}
+```
+
+Create a bicycle detail:
+
+```http
+POST /api/bicycle-details
+Content-Type: application/json
+
+{
+  "bicycleId": 1,
+  "frameMaterial": "Steel",
+  "wheelSize": 29,
+  "weight": 4,
+  "suspension": "Front"
+}
+```
+
+Create a customer:
+
+```http
+POST /api/customers
+Content-Type: application/json
+
+{
+  "name": "Juan",
+  "email": "juan@gmail.com"
+}
+```
+
+Create an order for that customer:
+
+```http
+POST /api/orders
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "orderDate": "2026-10-01T18:50:00.000Z",
+  "status": "pending"
+}
+```
+
 ## Postman
 
 The API can be tested using the existing Postman documentation:
@@ -434,6 +821,24 @@ The API can be tested using the existing Postman documentation:
 https://documenter.getpostman.com/view/58320211/2sBYB4L76J
 
 The Postman documentation can be used alongside the endpoint reference in this README to test the API.
+
+The repository also includes the request collection in `backend/docs/`:
+
+- `bicycle-shop-in-the-classroom.postman_collection.json`: Postman collection that can be imported directly into Postman.
+- `bicycle-shop-in-the-classroom/`: the same requests as an OpenCollection folder of YAML files, grouped by `bicycles`, `bicyclesDetails`, `brands`, `customers`, and `orders`.
+
+## Known Issues
+
+These points were found while reviewing the current code. They do not prevent the API from starting, but they should be reviewed before using the project beyond local development:
+
+- **Data loss on startup:** `sequelize.sync({ force: true })` drops and recreates all tables every time the backend starts.
+- **Frontend and backend are out of sync:** the frontend sends and displays a text field named `brand`, while the backend expects `brandId` and returns bicycles without the brand name. Creating or editing a bicycle from the UI is rejected by the API (`brandId` is required), and the list cannot show the brand until the frontend uses `brandId` or the API includes the brand in the response.
+- **Broken eager-loading endpoint:** `GET /api/bicycle-details/eagerly/:id` includes the wrong model/alias (see the implementation note in [Bicycle detail endpoints](#bicycle-detail-endpoints)).
+- **Typo in an error response:** `GET /api/bicycles/eagerly/:id` returns `{ "messsage": "Bicycle not found" }` (three `s`) instead of `message` when the bicycle does not exist.
+- **Generic database errors:** a duplicate customer email, deleting a brand that still has bicycles, or creating a record with a non-existent foreign key is not handled specifically; the error middleware answers with a generic `500` response instead of a `400`/`409`.
+- **Weak validation on bicycle details:** the controller requires `frameMaterial`, `wheelSize`, and `weight`, but those columns are nullable at database level.
+- **Mixed languages in API messages:** most messages are in English, while the validation message for bicycles and the `404`/`500` middleware messages are in Spanish.
+- **Orders without items:** an order cannot yet reference any bicycle.
 
 ## Running the Tests
 
@@ -512,13 +917,17 @@ Using `force: true` recreates the tables when the application starts.
 - Git
 - npm
 - Postman
+- Mermaid (diagrams in this README)
 
 ## Project Structure
 
 ```text
-bicycle-shop-dsw-entrega-3/
+bicycle-shop-dsw-entrega-4/
 │
 ├── backend/
+│   ├── docs/
+│   │   ├── bicycle-shop-in-the-classroom/
+│   │   └── bicycle-shop-in-the-classroom.postman_collection.json
 │   ├── src/
 │   │   ├── config/
 │   │   ├── middlewares/
@@ -527,7 +936,9 @@ bicycle-shop-dsw-entrega-3/
 │   │   ├── modules/
 │   │   │   ├── bicycle-details/
 │   │   │   ├── bicycles/
-│   │   │   └── brands/
+│   │   │   ├── brands/
+│   │   │   ├── customers/
+│   │   │   └── orders/
 │   │   ├── routes/
 │   │   ├── app.ts
 │   │   └── server.ts
@@ -555,6 +966,16 @@ bicycle-shop-dsw-entrega-3/
 │   └── vite.config.ts
 │
 └── README.md
+```
+
+Each backend module (`bicycle-details`, `bicycles`, `brands`, `customers`, and `orders`) follows the same layered structure:
+
+```text
+<module>/
+├── <name>.model.ts        # Sequelize model
+├── <name>.service.ts      # Database queries
+├── <name>.controller.ts   # Validation and HTTP responses
+└── <name>.routes.ts       # Express routes
 ```
 
 ## Contributing
