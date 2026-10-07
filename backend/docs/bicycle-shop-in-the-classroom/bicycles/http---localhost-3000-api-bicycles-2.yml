@@ -1,0 +1,31 @@
+info:
+  name: http://localhost:3000/api/bicycles/2
+  type: http
+  seq: 2
+
+http:
+  method: PUT
+  url: http://localhost:3000/api/bicycles/2
+  body:
+    type: json
+    data: "{\r
+
+      \    \"brandId\": 1,\r
+
+      \    \"model\": \"BH\",\r
+
+      \    \"description\": \"Great for any ocassion\",\r
+
+      \    \"price\":189.99,\r
+
+      \    \"stock\":10\r
+
+      }"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

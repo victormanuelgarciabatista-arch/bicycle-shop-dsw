@@ -7,6 +7,9 @@ import { defineAssociations } from "./models/associations";
 import "./modules/bicycles/bicycle.model";
 import "./modules/brands/brand.model";
 import "./modules/bicycle-details/bicycle-detail.model";
+import "./modules/customers/customer.model";
+import "./modules/orders/order.model";
+import "./modules/order-items/order-item.model";
 
 async function startServer() {
   try {
@@ -17,7 +20,7 @@ async function startServer() {
 
     console.log("Conexión con MySQL establecida.");
 
-    // Definimos las asociaciones entre los modelos.
+
     //await sequelize.sync();
 
     await sequelize.sync({ force: true }).then(() => {
