@@ -1,19 +1,17 @@
 info:
-  name: http://localhost:3000/api/order-items copy
+  name: "http://localhost:3000/api/customers  "
   type: http
-  seq: 2
+  seq: 5
 
 http:
-  method: GET
-  url: http://localhost:3000/api/order-items
+  method: DELETE
+  url: http://localhost:3000/api/customers
   body:
     type: json
     data: |-
       {
-        "orderId": 1,
-        "bicycleId": 1,
-        "quantity": 1,
-        "unitPrice": 799
+        "name": "Juan",
+        "email": "juan@gmail.com"
       }
   auth: inherit
 

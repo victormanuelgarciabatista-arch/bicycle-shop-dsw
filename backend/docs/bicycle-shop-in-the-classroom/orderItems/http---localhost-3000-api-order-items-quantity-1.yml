@@ -1,11 +1,11 @@
 info:
-  name: http://localhost:3000/api/order-items
+  name: http://localhost:3000/api/order-items/quantity/1
   type: http
-  seq: 1
+  seq: 3
 
 http:
-  method: POST
-  url: http://localhost:3000/api/order-items
+  method: GET
+  url: http://localhost:3000/api/order-items/quantity/1
   body:
     type: json
     data: |-
