@@ -43,6 +43,20 @@ export class OrderItemController {
         }
     }
 
+    static async getByQuantity(req: Request, res: Response) {
+        try {
+            const quantity = Number(req.params.quantity);
+
+            const orderItems = await OrderItemService.findByQuantity(quantity);
+
+            return res.status(200).json(orderItems);
+        } catch (error) {
+            return res.status(500).json({
+                message: "Error getting order items by quantity",
+                error
+            });
+        }
+    }
 
     static async create(
         req: Request,

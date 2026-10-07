@@ -43,13 +43,13 @@ export class BicycleController {
     }
   }
 
-static async getAllEagerlyByFrameMaterial(
+  static async getAllEagerlyByFrameMaterial(
     req: Request,
     res: Response,
     next: NextFunction
   ) {
     try {
-      
+
       const frameMaterial = String(req.params.frameMaterial);
 
       const bicycles = await BicycleService.findAllEagerlyByFrameMaterial(frameMaterial);

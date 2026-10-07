@@ -23,6 +23,23 @@ export class OrderItemService {
         return OrderItem.findByPk(id);
     }
 
+    static async findByQuantity(quantity: number) {
+        return OrderItem.findAll({
+            where: {
+                quantity: quantity
+            },
+            include: [
+                {
+                    model: Order,
+                    as: "order"
+                },
+                {
+                    model: Bicycle,
+                    as: "bicycle"
+                }
+            ]
+        });
+    }
 
 
     static async create(data: {

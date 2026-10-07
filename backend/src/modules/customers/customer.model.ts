@@ -49,7 +49,7 @@ Customer.init(
         sequelize,
 
         tableName: "Customers",
-        
+
         modelName: "Customer",
     }
 );
