@@ -76,6 +76,8 @@ DB_PASSWORD=your-database-password
 
 Replace `DB_USER` and `DB_PASSWORD` with your MySQL credentials.
 
+> **Note:** if a variable is missing, `backend/src/config/env.ts` falls back to default values (`PORT=3000`, `DB_HOST=localhost`, `DB_PORT=3306`, `DB_USER=root`, an empty password, and `DB_NAME=dsw_products`). The default database name is **not** the same as the one in `.env.example`, so always define `DB_NAME` explicitly.
+
 Install the backend dependencies:
 
 ``` bash
@@ -145,6 +147,8 @@ npm run dev
 
 Open the local URL displayed by Vite in the terminal.
 
+> **Note:** the frontend currently only contains the bicycle listing and management screen. Brands, bicycle details, customers, and orders are available through the API only. See [Known Issues](#known-issues) for the current frontend/backend mismatch.
+
 ## API
 
 The backend exposes REST endpoints for bicycles, brands, bicycle
@@ -199,6 +203,8 @@ A brand contains:
 -   `name`
 -   `createdAt`
 -   `updatedAt`
+
+A brand that still has bicycles cannot be deleted (`ON DELETE RESTRICT`); the request fails until its bicycles are removed or moved to another brand.
 
 ### Bicycle detail endpoints
 
@@ -427,6 +433,58 @@ flowchart LR
     API -->|JSON response| F
 ```
 
+### Customer Queries
+
+```mermaid
+flowchart TD
+    A["/api/customers"] --> B{HTTP Method}
+    B -->|GET| C[Get all customers]
+    B -->|POST| D[Create customer]
+
+    E["/api/customers/:id"] --> F{HTTP Method}
+    F -->|GET| G[Get customer by ID]
+    F -->|PUT| H[Update customer]
+    F -->|DELETE| I[Delete customer]
+
+    J["/api/customers/:name_search/orders"] --> K[Search customers by name with their Orders]
+
+    C --> S[Customer Service]
+    D --> S
+    G --> S
+    H --> S
+    I --> S
+    K --> S
+
+    S --> ORM[Sequelize]
+    ORM --> DB[(MySQL)]
+```
+
+### Order Queries
+
+```mermaid
+flowchart TD
+    A["/api/orders"] --> B{HTTP Method}
+    B -->|GET| C[Get all orders]
+    B -->|POST| D[Create order]
+
+    E["/api/orders/:id"] --> F{HTTP Method}
+    F -->|GET| G[Get order by ID]
+    F -->|PUT| H[Update order]
+    F -->|DELETE| I[Delete order]
+
+    J["/api/orders/customers/:id"] --> K[Get orders of a customer with Customer data]
+
+    C --> S[Order Service]
+    D --> S
+    G --> S
+    H --> S
+    I --> S
+    K --> S
+
+    S --> ORM[Sequelize]
+    ORM --> DB[(MySQL)]
+```
+
 ## Database Model
 
 The current Sequelize associations define:
@@ -494,6 +552,23 @@ erDiagram
         INT bicycleId FK
         INT quantity
         DECIMAL unitPrice
+    }
+
+    CUSTOMER {
+        INT id PK
+        VARCHAR_150 name
+        VARCHAR_160 email UK
+        DATE createdAt
+        DATE updatedAt
+    }
+
+    ORDERS {
+        INT id PK
+        INT customerId FK
+        DATE orderDate
+        ENUM status
+        DATE createdAt
+        DATE updatedAt
     }
 ```
 
@@ -571,6 +646,24 @@ GET /api/orders/customers/:id
 
 This query returns orders for a specific customer and includes the
 customer's `id`, `name`, and `email`.
+
+The repository also includes the request collection in `backend/docs/`:
+
+- `bicycle-shop-in-the-classroom.postman_collection.json`: Postman collection that can be imported directly into Postman.
+- `bicycle-shop-in-the-classroom/`: the same requests as an OpenCollection folder of YAML files, grouped by `bicycles`, `bicyclesDetails`, `brands`, `customers`, and `orders`.
+
+## Known Issues
+
+These points were found while reviewing the current code. They do not prevent the API from starting, but they should be reviewed before using the project beyond local development:
+
+- **Data loss on startup:** `sequelize.sync({ force: true })` drops and recreates all tables every time the backend starts.
+- **Frontend and backend are out of sync:** the frontend sends and displays a text field named `brand`, while the backend expects `brandId` and returns bicycles without the brand name. Creating or editing a bicycle from the UI is rejected by the API (`brandId` is required), and the list cannot show the brand until the frontend uses `brandId` or the API includes the brand in the response.
+- **Broken eager-loading endpoint:** `GET /api/bicycle-details/eagerly/:id` includes the wrong model/alias (see the implementation note in [Bicycle detail endpoints](#bicycle-detail-endpoints)).
+- **Typo in an error response:** `GET /api/bicycles/eagerly/:id` returns `{ "messsage": "Bicycle not found" }` (three `s`) instead of `message` when the bicycle does not exist.
+- **Generic database errors:** a duplicate customer email, deleting a brand that still has bicycles, or creating a record with a non-existent foreign key is not handled specifically; the error middleware answers with a generic `500` response instead of a `400`/`409`.
+- **Weak validation on bicycle details:** the controller requires `frameMaterial`, `wheelSize`, and `weight`, but those columns are nullable at database level.
+- **Mixed languages in API messages:** most messages are in English, while the validation message for bicycles and the `404`/`500` middleware messages are in Spanish.
+- **Orders without items:** an order cannot yet reference any bicycle.
 
 ## Running the Tests
 
@@ -693,6 +786,16 @@ bicycle-shop-dsw-entrega-5/
 │   └── vite.config.ts
 │
 └── README.md
+```
+
+Each backend module (`bicycle-details`, `bicycles`, `brands`, `customers`, and `orders`) follows the same layered structure:
+
+```text
+<module>/
+├── <name>.model.ts        # Sequelize model
+├── <name>.service.ts      # Database queries
+├── <name>.controller.ts   # Validation and HTTP responses
+└── <name>.routes.ts       # Express routes
 ```
 
 ## Contributing
