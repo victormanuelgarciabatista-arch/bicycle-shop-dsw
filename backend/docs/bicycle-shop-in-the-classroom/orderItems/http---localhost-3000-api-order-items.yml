@@ -6,6 +6,15 @@ info:
 http:
   method: POST
   url: http://localhost:3000/api/order-items
+  body:
+    type: json
+    data: |-
+      {
+        "orderId": 1,
+        "bicycleId": 1,
+        "quantity": 1,
+        "unitPrice": 799
+      }
   auth: inherit
 
 settings:
