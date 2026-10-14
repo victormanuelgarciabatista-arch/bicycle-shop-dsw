@@ -41,6 +41,18 @@
 - [24. Ejercicio 3: bicicletas con precio > 100](#24-preexamen-precio-mayor-que-100)
 - [25. Ejercicio 4: pedidos, precio < 100 y peso > 20](#25-preexamen-pedidos-precio-y-peso)
 
+### Me piden una entidad de ENVÍOS (Shipment)
+- [30. Entender la entidad Shipment y su relación con Order](#30-envios-que-es-shipment-y-como-se-relaciona)
+- [31. Crear Shipment con trackingNumber que admite NULL](#31-envios-modelo-con-null)
+- [32. CRUD completo de Shipment: service, controller y routes](#32-envios-crud-completo)
+- [33. Registrar Shipment y probar todo en Bruno](#33-envios-registro-y-pruebas-en-bruno)
+- [34. Consultas de envíos: de fácil a difícil](#34-envios-consultas-resueltas)
+- [35. Cambiar la relación 1:N por 1:1 si el ERD lo exige](#35-envios-si-el-profesor-dibuja-otra-relacion)
+- [36. Mini examen de envíos y checklist](#36-envios-mini-examen)
+- [37. ENUM y NULL explicados desde cero (sin confundirlos)](#37-envios-enum-y-null-desde-cero)
+- [38. Consultas de examen combinando ENUM, NULL y relaciones](#38-consultas-enum-null-y-relaciones)
+- [39. Bruno: pruebas buenas y errores con ENUM y NULL](#39-bruno-pruebas-de-enum-y-null)
+
 ### Antes de entregar
 - [26. Errores típicos y cómo solucionarlos](#26-errores-tipicos)
 - [27. Git: rama pre-examen](#27-git-y-entrega)
@@ -909,3 +921,825 @@ Si la rama ya existe, usa `git switch pre-examen` en vez de crearla. Revisa `git
 **FRASE PARA RECORDAR EN EL EXAMEN:** «¿Qué quiero devolver? → ¿Dónde están los campos? → ¿Cómo se conectan las tablas? → `findAll` + `where` + `include` → controller → route → Bruno».
 
 **Base de esta guía:** ZIP `bicycle-shop-dsw-entrega-5`, NOREADME aportado y prueba de examen del 08/10/2026. El ejemplo `Category` es **hipotético**; el ERD exacto y los atributos de la entidad nueva se decidirán en el examen. Los fragmentos no han sido probados con tu MySQL en ejecución.
+
+
+---
+
+## 30. ENVÍOS: qué es Shipment y cómo se relaciona
+
+**Ejemplo de entrenamiento inventado:** el profesor podría pedir una entidad `Shipment` (envío). **No está en tu ZIP original ni está confirmada para el examen.** Conservamos el ejemplo `Category` y TODO lo anterior: este es un capítulo adicional.
+
+Imagina que una tienda vende bicicletas. `Order` es **el pedido** del cliente; `Shipment` es **un envío físico** de ese pedido. Un pedido podría enviarse en varios paquetes. Por eso elegimos **1:N** como ejemplo:
+
+```text
+Order (1)  ------------------< Shipment (muchos)
+  id                             id
+  customerId                     orderId  <-- clave foránea
+                                 name
+                                 trackingNumber  <-- PUEDE SER NULL
+                                 status
+```
+
+**Traducción para el examen:** «Un pedido puede tener varios envíos» → `Order.hasMany(Shipment)`; «cada envío pertenece a un pedido» → `Shipment.belongsTo(Order)`; **`orderId` está en Shipment**, el lado muchos.
+
+El atributo nullable será `trackingNumber`: al preparar el envío puede que aún no sepamos el número de seguimiento. **`NULL` significa 'sin dato', no la cadena de texto `"null"`.**
+
+| Campo | Tipo | Obligatorio | Para qué sirve |
+|---|---|---|---|
+| `id` | entero | automático | Identificador del envío |
+| `orderId` | entero | sí | Pedido al que pertenece |
+| `name` | texto | sí | Nombre del envío, p. ej. «Paquete principal» |
+| `trackingNumber` | texto o `null` | **no** | Código de seguimiento si ya existe |
+| `status` | **ENUM** | sí | Solo `pending`, `sent` o `delivered` |
+
+> Si el ERD del examen indica **una sola entrega por pedido**, la relación será 1:1 y NO debes copiar ciegamente la 1:N: mira el [apartado 35](#35-envios-si-el-profesor-dibuja-otra-relacion).
+
+## 31. ENVÍOS: modelo con NULL y ENUM
+
+Crea la carpeta `backend/src/modules/shipments/` y el archivo `shipment.model.ts`. Es un ejemplo con el mismo estilo de Sequelize + TypeScript que tus modelos.
+
+```ts
+import {
+  Model, DataTypes, InferAttributes,
+  InferCreationAttributes, CreationOptional
+} from 'sequelize';
+import { sequelize } from '../../config/database';
+
+export class Shipment extends Model<
+  InferAttributes<Shipment>,
+  InferCreationAttributes<Shipment>
+> {
+  declare id: CreationOptional<number>;
+  declare orderId: number;
+  declare name: string;
+  declare trackingNumber: CreationOptional<string | null>;
+  declare status: CreationOptional<'pending' | 'sent' | 'delivered'>;
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
+}
+
+Shipment.init({
+  id: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  orderId: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: false
+  },
+  name: {
+    type: DataTypes.STRING(150),
+    allowNull: false
+  },
+  trackingNumber: {
+    type: DataTypes.STRING(120),
+    allowNull: true,
+    defaultValue: null
+  },
+  status: {
+    type: DataTypes.ENUM('pending', 'sent', 'delivered'),
+    allowNull: false,
+    defaultValue: 'pending'
+  },
+  createdAt: DataTypes.DATE,
+  updatedAt: DataTypes.DATE
+}, {
+  sequelize,
+  tableName: 'shipments',
+  timestamps: true
+});
+```
+
+**Lee estas tres líneas sin miedo:** `declare trackingNumber: CreationOptional<string | null>` permite omitirlo al crear y representa un texto o `null`; `allowNull: true` permite NULL en MySQL; `defaultValue: null` asigna NULL por defecto. **No es lo mismo** que escribir `"null"` entre comillas en Bruno.
+
+## 32. ENVÍOS: CRUD completo
+
+**Recuerda:** `service` trabaja con Sequelize, `controller` recibe y responde, `routes` crea la dirección web.
+
+### A. `shipment.service.ts`
+
+```ts
+import { Shipment } from './shipment.model';
+
+export type ShipmentInput = {
+  orderId: number;
+  name: string;
+  trackingNumber?: string | null;
+  status?: 'pending' | 'sent' | 'delivered';
+};
+
+export class ShipmentService {
+  static async findAll() {
+    return Shipment.findAll();
+  }
+  static async findById(id: number) {
+    return Shipment.findByPk(id);
+  }
+  static async create(data: ShipmentInput) {
+    return Shipment.create(data);
+  }
+  static async update(shipment: Shipment, data: Partial<ShipmentInput>) {
+    return shipment.update(data);
+  }
+  static async delete(shipment: Shipment) {
+    await shipment.destroy();
+  }
+}
+```
+
+**¿Qué significa `Partial`?** Que al actualizar no tienes que mandar todos los campos. Por ejemplo, puedes actualizar solo `trackingNumber`.
+
+### B. `shipment.controller.ts`
+
+```ts
+import { Request, Response, NextFunction } from 'express';
+import { ShipmentService } from './shipment.service';
+
+const validStatuses = ['pending', 'sent', 'delivered'];
+
+export class ShipmentController {
+  static async getAll(req: Request, res: Response, next: NextFunction) {
+    try { res.json(await ShipmentService.findAll()); }
+    catch (error) { next(error); }
+  }
+
+  static async getById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ message: 'ID incorrecto' }); return;
+      }
+      const shipment = await ShipmentService.findById(id);
+      if (!shipment) {
+        res.status(404).json({ message: 'Envío no encontrado' }); return;
+      }
+      res.json(shipment);
+    } catch (error) { next(error); }
+  }
+
+  static async create(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { orderId, name, trackingNumber, status } = req.body;
+      if (!Number.isInteger(orderId) || orderId <= 0 ||
+          typeof name !== 'string' || !name.trim() ||
+          (trackingNumber != null && typeof trackingNumber !== 'string') ||
+          (status !== undefined && !validStatuses.includes(status))) {
+        res.status(400).json({ message: 'Datos de envío incorrectos' }); return;
+      }
+      const created = await ShipmentService.create({
+        orderId, name, trackingNumber: trackingNumber ?? null, status
+      });
+      res.status(201).json(created);
+    } catch (error) { next(error); }
+  }
+
+  static async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ message: 'ID incorrecto' }); return;
+      }
+      const shipment = await ShipmentService.findById(id);
+      if (!shipment) {
+        res.status(404).json({ message: 'Envío no encontrado' }); return;
+      }
+      const { orderId, name, trackingNumber, status } = req.body;
+      if ((orderId !== undefined && (!Number.isInteger(orderId) || orderId <= 0)) ||
+          (name !== undefined && (typeof name !== 'string' || !name.trim())) ||
+          (trackingNumber !== undefined && trackingNumber !== null && typeof trackingNumber !== 'string') ||
+          (status !== undefined && !validStatuses.includes(status))) {
+        res.status(400).json({ message: 'Datos de actualización incorrectos' }); return;
+      }
+      const updated = await ShipmentService.update(shipment, req.body);
+      res.json(updated);
+    } catch (error) { next(error); }
+  }
+
+  static async delete(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        res.status(400).json({ message: 'ID incorrecto' }); return;
+      }
+      const shipment = await ShipmentService.findById(id);
+      if (!shipment) {
+        res.status(404).json({ message: 'Envío no encontrado' }); return;
+      }
+      await ShipmentService.delete(shipment);
+      res.status(204).send();
+    } catch (error) { next(error); }
+  }
+}
+```
+
+**Ojo:** este controller hace validaciones básicas para estudiar; en una aplicación real también validarías que el `orderId` exista y limitarías exactamente qué propiedades se pueden actualizar. La base de datos puede rechazar un `orderId` inexistente si hay una restricción de clave foránea.
+
+### C. `shipment.routes.ts`
+
+```ts
+import { Router } from 'express';
+import { ShipmentController } from './shipment.controller';
+
+const router = Router();
+
+// Las rutas especiales de consultas se añadirán AQUÍ,
+// antes de /:id. Mira el apartado 34.
+router.get('/', ShipmentController.getAll);
+router.get('/:id', ShipmentController.getById);
+router.post('/', ShipmentController.create);
+router.put('/:id', ShipmentController.update);
+router.delete('/:id', ShipmentController.delete);
+
+export default router;
+```
+
+## 33. ENVÍOS: registro y pruebas en Bruno
+
+### A. Asociación en `src/models/associations.ts`
+
+Arriba, importa el nuevo modelo:
+
+```ts
+import { Shipment } from '../modules/shipments/shipment.model';
+```
+
+Dentro de `defineAssociations()`, añade:
+
+```ts
+Order.hasMany(Shipment, { foreignKey: 'orderId', as: 'shipments' });
+Shipment.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+```
+
+**Regla:** `as: 'order'` es el nombre que pondrás al incluir `Order` desde `Shipment`. `as: 'shipments'` es el nombre que pondrás al incluir envíos desde `Order`.
+
+### B. Registrar modelo y rutas
+
+En `src/server.ts`, con los otros imports de modelos:
+
+```ts
+import './modules/shipments/shipment.model';
+```
+
+En `src/routes/index.ts`, con los otros imports:
+
+```ts
+import shipmentRoutes from '../modules/shipments/shipment.routes';
+```
+
+Y junto a los otros `router.use`:
+
+```ts
+router.use('/shipments', shipmentRoutes);
+```
+
+No necesitas tocar `app.ts`: en tu proyecto las rutas ya se montan bajo `/api`.
+
+**ATENCIÓN:** tu `server.ts` original usa `sequelize.sync({ force: true })`, que **borra y recrea las tablas en cada arranque**. No lo olvides al crear datos para probar. Si modificas la sincronización, hazlo conscientemente y siguiendo las indicaciones del profesor; no uses `force` sobre datos que necesites conservar.
+
+### C. Bruno, paso a paso
+
+Asegúrate primero de que existe un `Order` con `id = 1`. Si no, crea uno con el endpoint de pedidos que ya tienes. Ajusta el puerto si no es 3000.
+
+| Qué haces | Método | URL | Body |
+|---|---|---|---|
+| Crear envío | POST | `http://localhost:3000/api/shipments` | JSON de abajo |
+| Ver todos | GET | `http://localhost:3000/api/shipments` | ninguno |
+| Ver uno | GET | `http://localhost:3000/api/shipments/1` | ninguno |
+| Cambiar seguimiento | PUT | `http://localhost:3000/api/shipments/1` | JSON de abajo |
+| Eliminar | DELETE | `http://localhost:3000/api/shipments/1` | ninguno |
+
+**POST, Body → JSON:**
+
+```json
+{
+  "orderId": 1,
+  "name": "Paquete principal",
+  "trackingNumber": null,
+  "status": "pending"
+}
+```
+
+**PUT, Body → JSON:**
+
+```json
+{
+  "trackingNumber": "SEUR12345",
+  "status": "sent"
+}
+```
+
+**Prueba del NULL:** en el POST escribe `null` sin comillas; después haz GET y comprueba que aparece `"trackingNumber": null`. Si el POST falla, mira el error de la terminal, el `orderId` y que el servidor esté arrancado.
+
+## 34. ENVÍOS: consultas resueltas
+
+**Receta universal:** 1) ¿Qué quieres devolver? → empieza por ese modelo. 2) ¿Dónde están los datos para filtrar? → `where` en ese modelo o en el `include`. 3) Añade **service + controller + route**. 4) Comprueba en Bruno.
+
+En los ejemplos siguientes, **añade cada método dentro de `ShipmentService`** salvo cuando se indique `OrderService`. Pon estos imports arriba del archivo correspondiente, sin duplicarlos:
+
+```ts
+import { Op } from 'sequelize';
+import { Order } from '../orders/order.model';
+// Para consultas desde OrderService:
+// import { Shipment } from '../shipments/shipment.model';
+```
+
+### Consulta A. Todos los envíos SIN seguimiento (NULL)
+
+**Enunciado:** «Devuelve envíos cuyo trackingNumber sea NULL».
+
+```ts
+static async withoutTracking() {
+  return Shipment.findAll({
+    where: { trackingNumber: null }
+  });
+}
+```
+
+**Por qué:** `where` filtra; `null` es un valor especial. No uses `'null'` como texto.
+
+### Consulta B. Envíos CON seguimiento (NO NULL)
+
+```ts
+static async withTracking() {
+  return Shipment.findAll({
+    where: { trackingNumber: { [Op.ne]: null } }
+  });
+}
+```
+
+**Por qué:** `Op.ne` significa «distinto de». Con `null`, Sequelize genera una comprobación de no-nulo.
+
+### Consulta C. Envíos de un pedido concreto
+
+```ts
+static async byOrderId(orderId: number) {
+  return Shipment.findAll({ where: { orderId } });
+}
+```
+
+**Controller:** convierte `req.params.orderId` a número y comprueba que sea entero positivo. **Route:** `router.get('/by-order/:orderId', ShipmentController.byOrderId);` antes de `/:id`. Más abajo tienes un patrón completo de controller.
+
+### Consulta D. Envíos CON la información de su pedido
+
+```ts
+static async withOrder() {
+  return Shipment.findAll({
+    include: [{ model: Order, as: 'order' }]
+  });
+}
+```
+
+**Por qué:** el resultado principal son envíos, pero también quieres el pedido. `as: 'order'` coincide con `Shipment.belongsTo(Order, ...)`.
+
+### Consulta E. Envíos enviados y todavía sin seguimiento
+
+```ts
+static async sentWithoutTracking() {
+  return Shipment.findAll({
+    where: {
+      status: 'sent',
+      trackingNumber: null
+    }
+  });
+}
+```
+
+**Por qué:** dos propiedades dentro del mismo `where` equivalen a **Y (AND)**: se tienen que cumplir las dos.
+
+### Consulta F. Pedidos que TENGAN al menos un envío pendiente
+
+Esta consulta empieza por `Order`, porque el enunciado pide **pedidos**. Añade a `OrderService`:
+
+```ts
+static async ordersWithPendingShipments() {
+  return Order.findAll({
+    include: [{
+      model: Shipment,
+      as: 'shipments',
+      where: { status: 'pending' },
+      required: true
+    }]
+  });
+}
+```
+
+**Por qué:** `required: true` deja fuera los pedidos sin envíos pendientes. El `where` está **dentro del include**, porque `status` es un campo de `Shipment`.
+
+### Consulta G. Pedidos con cliente y envíos (varias relaciones)
+
+En `OrderService`, importa también `Customer` si falta:
+
+```ts
+static async ordersWithCustomerAndShipments() {
+  return Order.findAll({
+    include: [
+      { model: Customer, as: 'customer' },
+      { model: Shipment, as: 'shipments' }
+    ]
+  });
+}
+```
+
+**Por qué:** son **dos includes al mismo nivel**: desde `Order` hacia `Customer` y desde `Order` hacia `Shipment`.
+
+### Consulta H. Envíos con pedido y bicicletas del pedido (include anidado)
+
+En `ShipmentService`, importa `Bicycle` si falta:
+
+```ts
+static async shipmentsWithOrderBicycles() {
+  return Shipment.findAll({
+    include: [{
+      model: Order,
+      as: 'order',
+      include: [{ model: Bicycle, as: 'bicycles' }]
+    }]
+  });
+}
+```
+
+**Por qué:** empiezas en `Shipment`, pasas a `Order` y **dentro** de Order pasas a `Bicycle`. El `as: 'bicycles'` es el que ya tiene tu proyecto en `Order.belongsToMany(Bicycle, ...)`.
+
+### Consulta I. Pedidos con envíos cuyo nombre contiene una palabra
+
+En `OrderService`:
+
+```ts
+static async ordersWithNamedShipment(texto: string) {
+  return Order.findAll({
+    include: [{
+      model: Shipment,
+      as: 'shipments',
+      where: { name: { [Op.like]: `%${texto}%` } },
+      required: true
+    }]
+  });
+}
+```
+
+**Por qué:** `Op.like` busca coincidencias de texto; `%` significa «cualquier secuencia de caracteres». Recuerda importar `Op` en el service.
+
+### Conectar una consulta completa: ejemplo A, en los TRES archivos
+
+**Service**: ya has añadido `withoutTracking()` en `ShipmentService`.
+
+**Controller:** dentro de `ShipmentController`:
+
+```ts
+static async getWithoutTracking(req: Request, res: Response, next: NextFunction) {
+  try {
+    const datos = await ShipmentService.withoutTracking();
+    res.json(datos);
+  } catch (error) { next(error); }
+}
+```
+
+**Routes:** en `shipment.routes.ts`, **antes de `router.get('/:id', ...)`**:
+
+```ts
+router.get('/without-tracking', ShipmentController.getWithoutTracking);
+```
+
+**Bruno:** `GET http://localhost:3000/api/shipments/without-tracking`.
+
+### Conectar una consulta con parámetro: ejemplo C
+
+**Controller:** dentro de `ShipmentController`:
+
+```ts
+static async byOrderId(req: Request, res: Response, next: NextFunction) {
+  try {
+    const orderId = Number(req.params.orderId);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      res.status(400).json({ message: 'orderId incorrecto' }); return;
+    }
+    res.json(await ShipmentService.byOrderId(orderId));
+  } catch (error) { next(error); }
+}
+```
+
+**Routes**, antes de `/:id`:
+
+```ts
+router.get('/by-order/:orderId', ShipmentController.byOrderId);
+```
+
+**Bruno:** `GET http://localhost:3000/api/shipments/by-order/1`.
+
+**Para D, E, G, H, I y F:** usa exactamente el mismo patrón de **service → controller → route**, cambiando el nombre del método. Si el service está en `OrderService`, el controller y la ruta nuevos van en **`order.controller.ts` y `order.routes.ts`**, no en Shipment. Mira también el [apartado 14](#14-receta-universal-de-consultas).
+
+## 35. ENVÍOS: si el profesor dibuja otra relación
+
+**No adivines el tipo de relación por el nombre Shipment: manda el dibujo.**
+
+- **1:N**: un pedido tiene muchos envíos → `Order.hasMany(Shipment)` + `Shipment.belongsTo(Order)`; `orderId` en Shipment. Es el ejemplo que hemos desarrollado.
+- **1:1**: un pedido tiene como máximo un envío → `Order.hasOne(Shipment)` + `Shipment.belongsTo(Order)`; `orderId` en Shipment con `unique: true` para impedir varios envíos del mismo pedido.
+- **N:M**: un envío puede agrupar varios pedidos y cada pedido estar en varios envíos → se necesita una tabla intermedia, por ejemplo `OrderShipment`, con `orderId` y `shipmentId`, y dos `belongsToMany`. **En ese diseño no copies el `orderId` directo de Shipment del ejemplo 1:N sin revisar el ERD.**
+
+**Círculo y palito:** el círculo significa mínimo 0 (opcional), el palito significa 1 y la pata de gallo significa muchos. **Un atributo `trackingNumber` nullable NO cambia automáticamente una relación 1:N en 0:N.** Son dos cosas diferentes.
+
+## 36. ENVÍOS: mini examen
+
+Prueba sin mirar las soluciones y luego vuelve al enlace indicado.
+
+1. **CRUD:** crea `Shipment` con `name` obligatorio y `trackingNumber` nullable. [Solución](#31-envios-modelo-con-null) y [CRUD](#32-envios-crud-completo).
+2. **Consulta fácil:** envíos sin número de seguimiento. [Solución A](#34-envios-consultas-resueltas).
+3. **Consulta de relación:** envíos con su pedido. [Solución D](#34-envios-consultas-resueltas).
+4. **Consulta con filtro de otra tabla:** pedidos con envíos pendientes. [Solución F](#34-envios-consultas-resueltas).
+5. **Consulta anidada:** envíos con pedido y bicicletas del pedido. [Solución H](#34-envios-consultas-resueltas).
+
+**Checklist de envíos antes de entregar:**
+
+- [ ] He creado los cuatro archivos de Shipment.
+- [ ] `trackingNumber` permite `NULL` en TypeScript y Sequelize.
+- [ ] He importado Shipment en `associations.ts` y añadido la relación correcta según el ERD.
+- [ ] He registrado modelo en `server.ts` y rutas en `routes/index.ts`.
+- [ ] Mis consultas están en el service y tienen controller y endpoint.
+- [ ] Las rutas especiales están antes de `/:id`.
+- [ ] He probado POST con `trackingNumber: null` y los GET en Bruno.
+- [ ] He comprobado el resultado y la consola antes de subir a GitHub.
+
+**Regla para mañana:** «¿Devuelvo envíos? → `Shipment.findAll()`. ¿Devuelvo pedidos? → `Order.findAll()`. ¿Filtro datos de la otra entidad? → `include` con `where` y, si quiero exigir coincidencia, `required: true`.»
+
+
+---
+
+## 37. ENVÍOS: ENUM y NULL desde cero
+
+**Esta es la versión de Shipment que practicaremos para el examen.** Tiene DOS campos diferentes:
+
+- **`trackingNumber` admite NULL:** todavía no conocemos el código de seguimiento. **No es el ID del pedido**: `orderId` sigue siendo obligatorio para la relación 1:N que hemos elegido como ejemplo.
+- **`status` es ENUM:** solo admite `'pending'`, `'sent'` o `'delivered'` y **NO** admite NULL en este ejemplo.
+
+| Campo | ¿Qué significa? | ¿Qué pongo en Sequelize? | ¿Qué envío desde Bruno? |
+|---|---|---|---|
+| `orderId` | A qué pedido pertenece | `allowNull: false` | `1` (si existe el pedido) |
+| `name` | Nombre del envío | `allowNull: false` | `"Paquete principal"` |
+| `trackingNumber` | Número de seguimiento aún desconocido | `allowNull: true`, `defaultValue: null` | `null` sin comillas |
+| `status` | Estado, solo entre tres opciones | `DataTypes.ENUM(...)` | `"pending"` |
+
+**El código ya está completo en el [apartado 31](#31-envios-modelo-con-null)**. Estas son las dos piezas que más debes reconocer:
+
+```ts
+// En la CLASE Shipment, arriba de Shipment.init(...):
+declare trackingNumber: CreationOptional<string | null>;
+declare status: CreationOptional<'pending' | 'sent' | 'delivered'>;
+
+// Dentro de Shipment.init({ ... }):
+trackingNumber: {
+  type: DataTypes.STRING(120),
+  allowNull: true,
+  defaultValue: null
+},
+status: {
+  type: DataTypes.ENUM('pending', 'sent', 'delivered'),
+  allowNull: false,
+  defaultValue: 'pending'
+}
+```
+
+**Traducción palabra por palabra:**
+
+1. `DataTypes.STRING(120)` = texto de hasta 120 caracteres.
+2. `allowNull: true` = se permite guardar el valor especial `NULL`.
+3. `defaultValue: null` = si no indicas ese campo al crear, su valor inicial será `NULL`.
+4. `DataTypes.ENUM('pending', 'sent', 'delivered')` = solo se aceptan esos tres estados.
+5. `defaultValue: 'pending'` = si no indicas estado, comienza pendiente.
+6. `allowNull: false` = el estado no puede ser `NULL`.
+
+**OJO: `NULL` no es `"null"`.** `null` sin comillas significa ausencia de dato; `"null"` entre comillas es un texto de cuatro letras.
+
+**¿Y si el profesor pide que el propio ENUM pueda ser NULL?** En ese caso, modifica **ambas partes**, no solo una:
+
+```ts
+// En la clase:
+declare status: CreationOptional<'pending' | 'sent' | 'delivered' | null>;
+
+// En Shipment.init:
+status: {
+  type: DataTypes.ENUM('pending', 'sent', 'delivered'),
+  allowNull: true,
+  defaultValue: null
+}
+```
+
+No hagas ese cambio si el examen indica que `status` es obligatorio. **Un campo nullable no significa que todos los campos deban admitir NULL.**
+
+## 38. Consultas ENUM + NULL + relaciones, paso a paso
+
+**Antes de cada consulta:** importa `Op` de `sequelize` solo si utilizas un operador (`Op.ne`, `Op.or`, etc.). Los métodos siguientes van **dentro de `ShipmentService`**, salvo los que empiezan con `Order.findAll()`, que van dentro de `OrderService`. Después aplica el patrón [service → controller → route → Bruno](#14-receta-universal-de-consultas).
+
+### A. Envíos pendientes (filtrar un ENUM)
+
+```ts
+static async pendingShipments() {
+  return Shipment.findAll({
+    where: { status: 'pending' }
+  });
+}
+```
+
+**Piensa:** «quiero envíos» → `Shipment.findAll`; «que estén pendientes» → `where` en `status`.
+
+### B. Envíos sin número de seguimiento (filtrar NULL)
+
+```ts
+static async shipmentsWithoutTracking() {
+  return Shipment.findAll({
+    where: { trackingNumber: null }
+  });
+}
+```
+
+**Piensa:** «sin dato» → `null`, nunca la palabra `'null'`.
+
+### C. Envíos pendientes Y sin seguimiento (dos condiciones)
+
+```ts
+static async pendingWithoutTracking() {
+  return Shipment.findAll({
+    where: {
+      status: 'pending',
+      trackingNumber: null
+    }
+  });
+}
+```
+
+**Piensa:** dos campos dentro del mismo `where` = tienen que cumplirse **LOS DOS**.
+
+### D. Envíos enviados O entregados (`Op.or`)
+
+```ts
+import { Op } from 'sequelize'; // ARRIBA del archivo, fuera de la clase
+
+static async sentOrDelivered() {
+  return Shipment.findAll({
+    where: {
+      [Op.or]: [
+        { status: 'sent' },
+        { status: 'delivered' }
+      ]
+    }
+  });
+}
+```
+
+**Piensa:** `Op.or` = vale una condición **O** la otra.
+
+### E. Envíos CON seguimiento y estado enviado (`Op.ne`)
+
+```ts
+static async sentWithTracking() {
+  return Shipment.findAll({
+    where: {
+      status: 'sent',
+      trackingNumber: { [Op.ne]: null }
+    }
+  });
+}
+```
+
+**Piensa:** `Op.ne` con `null` busca los que **NO** son nulos.
+
+### F. Pedidos con al menos un envío entregado (relación 1:N)
+
+**Este método va en `OrderService`, no en `ShipmentService`:**
+
+```ts
+static async ordersWithDeliveredShipments() {
+  return Order.findAll({
+    include: [{
+      model: Shipment,
+      as: 'shipments',
+      where: { status: 'delivered' },
+      required: true
+    }]
+  });
+}
+```
+
+**Piensa en este orden:** «devuelve pedidos» → `Order.findAll`; «con envíos» → `include: Shipment`; «entregados» → `where` **dentro del include**; «que tengan al menos uno» → `required: true`.
+
+### G. Pedidos con envíos pendientes y sin seguimiento (relación + ENUM + NULL)
+
+```ts
+static async ordersPendingWithoutTracking() {
+  return Order.findAll({
+    include: [{
+      model: Shipment,
+      as: 'shipments',
+      required: true,
+      where: {
+        status: 'pending',
+        trackingNumber: null
+      }
+    }]
+  });
+}
+```
+
+**Esta consulta es un modelo muy útil para el examen:** filtras por **dos atributos de la entidad relacionada** y devuelves la entidad principal.
+
+**¡IMPORTANTE!** Los alias `as: 'shipments'` y `as: 'order'` funcionan **si has creado las asociaciones del [apartado 33](#33-envios-registro-y-pruebas-en-bruno)**. Si el profesor cambia el dibujo ERD, revisa las relaciones antes de copiar.
+
+### Ejemplo completo de conexión de la consulta C
+
+**Service:** copia `pendingWithoutTracking()` dentro de `ShipmentService`.
+
+**Controller:** dentro de `ShipmentController`:
+
+```ts
+static async getPendingWithoutTracking(
+  req: Request, res: Response, next: NextFunction
+) {
+  try {
+    const datos = await ShipmentService.pendingWithoutTracking();
+    res.json(datos);
+  } catch (error) {
+    next(error);
+  }
+}
+```
+
+**Routes:** antes de `router.get('/:id', ...)`:
+
+```ts
+router.get('/pending-without-tracking', ShipmentController.getPendingWithoutTracking);
+```
+
+**Bruno:** `GET http://localhost:3000/api/shipments/pending-without-tracking` (ajusta el puerto).
+
+## 39. Bruno: pruebas de ENUM y NULL
+
+Primero implementa el CRUD del [apartado 32](#32-envios-crud-completo), registra rutas y relaciones en el [apartado 33](#33-envios-registro-y-pruebas-en-bruno) y comprueba que existe el pedido `1`.
+
+### Prueba 1 — Correcta: ENUM válido y campo NULL
+
+**POST** `http://localhost:3000/api/shipments` → **Body → JSON**:
+
+```json
+{
+  "orderId": 1,
+  "name": "Primer paquete",
+  "trackingNumber": null,
+  "status": "pending"
+}
+```
+
+**Esperado:** crea el envío; al consultar el registro, `trackingNumber` aparece como `null`.
+
+### Prueba 2 — Correcta: ENUM válido y texto en el campo nullable
+
+```json
+{
+  "orderId": 1,
+  "name": "Segundo paquete",
+  "trackingNumber": "ENV-001",
+  "status": "sent"
+}
+```
+
+**Esperado:** crea un envío con seguimiento. **Permitir NULL no obliga a usar NULL.**
+
+### Prueba 3 — Incorrecta: valor que no pertenece al ENUM
+
+```json
+{
+  "orderId": 1,
+  "name": "Paquete imposible",
+  "trackingNumber": null,
+  "status": "flying"
+}
+```
+
+**Esperado:** ese estado **no debe aceptarse**. El código HTTP concreto depende de las validaciones y del manejo de errores de tu API. Si se guarda, revisa la validación y el tipo real de la columna en la base de datos.
+
+### Prueba 4 — Incorrecta: NULL en el ENUM obligatorio
+
+```json
+{
+  "orderId": 1,
+  "name": "Paquete sin estado",
+  "trackingNumber": null,
+  "status": null
+}
+```
+
+**Esperado:** falla porque `status` tiene `allowNull: false` en este ejemplo.
+
+### Prueba 5 — Sin enviar campos opcionales
+
+```json
+{
+  "orderId": 1,
+  "name": "Paquete automático"
+}
+```
+
+**Esperado:** `trackingNumber` toma `null` y `status` toma `'pending'` por sus valores predeterminados, siempre que el controller no sobrescriba esos campos.
+
+**Si falla algo:** revisa si tu controller está enviando los campos al service, si tu service los pasa a `Shipment.create(...)`, si el modelo tiene el `ENUM` y `allowNull` correctos, y si la tabla de MySQL corresponde a la definición actual. Recuerda que `sync({ force: true })` borra datos al reiniciar.
+
+**Regla final para mañana:** `ENUM = elegir de una lista`; `NULL = se permite no tener dato`; `include = traer otra entidad`; `where = filtrar`; `required: true = exigir coincidencia relacionada`.
