@@ -1,0 +1,24 @@
+info:
+  name: http://localhost:3000/api/models_3
+  type: http
+  seq: 4
+
+http:
+  method: DELETE
+  url: http://localhost:3000/api/models/1
+  body:
+    type: json
+    data: |2-
+       {
+              
+              "name": "saltamontanas"
+          
+          }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: false

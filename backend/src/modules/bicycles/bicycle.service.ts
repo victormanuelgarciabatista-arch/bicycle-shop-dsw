@@ -1,6 +1,7 @@
 import { BicycleDetail } from "../bicycle-details/bicycle-detail.model";
 import { Brand } from "../brands/brand.model";
 import { Bicycle } from "./bicycle.model";
+import { Model } from "../models/model.model";
 
 export class BicycleService {
 
@@ -36,15 +37,34 @@ export class BicycleService {
         {
           model: Brand,
           as: 'brand'
-        }
+        },
+       
       ]
+    })
+
+  }
+
+   static async findBrandAndModel() {
+
+    return Bicycle.findAll({
+      include: [
+        {
+          model: Brand,
+          as: 'brand'
+        },
+        {
+          model: Model,
+          as: 'model'
+        }
+      ],
+      order : [["id", "ASC"]],
     })
 
   }
 
   static async create(data: {
     brandId: number;
-    model: string;
+    modelId: number;
     description?: string | null;
     price: number;
     stock: number;
@@ -57,7 +77,7 @@ export class BicycleService {
     bicycle: Bicycle,
     data: {
       brandId?: number;
-      model?: string;
+      modelId?: number;
       description?: string | null;
       price?: number;
       stock?: number;
